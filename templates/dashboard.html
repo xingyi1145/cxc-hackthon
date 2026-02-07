@@ -1,0 +1,31 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="dashboard-container">
+    <h1>User Dashboard</h1>
+    
+    <div class="user-info">
+        <p><strong>Logged in as:</strong> {{ auth0_info['name'] }} ({{ auth0_info['email'] }})</p>
+    </div>
+
+    <!-- Falsh Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flashes">
+        {% for category, message in messages %}
+          <li class="{{ category }}">{{ message }}</li>
+        {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    <div class="financial-form">
+        <!-- Financial Profile Section - To be implemented by other team members -->
+        <p><em>Financial Profile section is currently under development.</em></p>
+    </div>
+
+    <div class="logout-section">
+        <a href="/logout" class="btn btn-secondary">Logout</a>
+    </div>
+</div>
+{% endblock %}

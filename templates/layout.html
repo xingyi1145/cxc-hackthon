@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <title>{% block title %}Housing Affordability Stress Tester{% endblock %}</title>
+</head>
+<body>
+    <header>
+        <h1>Housing Affordability Stress Tester</h1>
+        {% if session.user %}
+            <p>Welcome, {{ session.user['name'] }}! <a href="{{ url_for('logout') }}">Logout</a></p>
+        {% else %}
+            <p><a href="{{ url_for('login') }}">Login</a></p>
+        {% endif %}
+    </header>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    <footer>
+        <p>&copy; 2023 Housing Affordability Stress Tester</p>
+    </footer>
+</body>
+</html>
