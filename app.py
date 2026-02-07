@@ -244,7 +244,7 @@ Format your response using markdown with:
 Be specific, use numbers when possible, and provide practical recommendations."""
 
         # Call Gemini API
-        model = genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         response = model.generate_content(prompt)
         
         return jsonify({
@@ -257,4 +257,4 @@ Be specific, use numbers when possible, and provide practical recommendations.""
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=env.get("PORT", 3000), debug=True)
+    app.run(host="0.0.0.0", port=env.get("PORT", 5001), debug=True)
