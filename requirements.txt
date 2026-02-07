@@ -3,3 +3,5 @@ Flask-SQLAlchemy
 python-dotenv
 authlib
 requests
+flask-cors
+google-generativeai

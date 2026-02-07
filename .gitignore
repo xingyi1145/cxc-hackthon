@@ -16,3 +16,5 @@ dist
 *.pyzw
 *.pyzwz
 *.pyzwzw
+hpi_forecast.png
+price_trajectory.png
