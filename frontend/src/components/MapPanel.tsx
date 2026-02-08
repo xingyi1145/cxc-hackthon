@@ -7,74 +7,68 @@ import { Slider } from './ui/slider';
 import { Label } from './ui/label';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { Switch } from './ui/switch';
-import { Map, Marker } from '@vis.gl/react-google-maps';
+import { Map, AdvancedMarker } from '@vis.gl/react-google-maps';
 
-interface MapListing {
-  id: string;
-  price: number;
-  location: string;
-  coordinates: { x: number; y: number };
-  monthlyPayment: number;
-  score: number;
-  affordability: 'safe' | 'stretch' | 'high-risk';
+import listingsData from '../data/listings.json'
+
+// Interface for the raw data from listings.json
+interface RawListingData {
+    id: number;
+    city: string;
+    address: string;
+    longitude: number;
+    latitude: number;
+    price: string;
+    bedrooms: string;
+    bathoom: string;
 }
 
-const mockListings: MapListing[] = [
-  {
-    id: '1',
-    price: 425000,
-    location: 'Capitol Hill',
-    coordinates: { x: 45, y: 40 },
-    monthlyPayment: 2850,
-    score: 78,
-    affordability: 'safe',
-  },
-  {
-    id: '2',
-    price: 510000,
-    location: 'Fremont',
-    coordinates: { x: 38, y: 30 },
-    monthlyPayment: 3420,
-    score: 65,
-    affordability: 'stretch',
-  },
-  {
-    id: '3',
-    price: 380000,
-    location: 'Georgetown',
-    coordinates: { x: 35, y: 65 },
-    monthlyPayment: 2540,
-    score: 82,
-    affordability: 'safe',
-  },
-  {
-    id: '4',
-    price: 625000,
-    location: 'Queen Anne',
-    coordinates: { x: 42, y: 35 },
-    monthlyPayment: 4180,
-    score: 58,
-    affordability: 'high-risk',
-  },
-  {
-    id: '5',
-    price: 455000,
-    location: 'Ballard',
-    coordinates: { x: 30, y: 25 },
-    monthlyPayment: 3050,
-    score: 72,
-    affordability: 'safe',
-  },
-  {
-    id: '6',
-    price: 495000,
-    location: 'Wallingford',
-    coordinates: { x: 48, y: 32 },
-    monthlyPayment: 3320,
-    score: 69,
-    affordability: 'stretch',
-  },
-];
+// Interface for the processed listings used by the map component
+interface DisplayListing {
+    id: string;
+    price: number;
+    location: string; // e.g., Address
+    coordinates: { lat: number; lng: number };
+    monthlyPayment: number;
+    score: number;
+    affordability: 'safe' | 'stretch' | 'high-risk';
+}
+
+// Process the raw listings data into the DisplayListing format
+const processedListings: DisplayListing[] = (listingsData as unknown as RawListingData[])
+  .filter(
+    (item) =>
+      typeof item.longitude === 'number' && typeof item.latitude === 'number' && item.price !== undefined
+  )
+  .map((item, index) => {
+    // Clean and parse the price string
+    const numericPrice = parseFloat(item.price.replace(/[^0-9.-]+/g, ""));
+
+    // Dummy logic for score and affordability, as these are not in listings.json
+    let score: number;
+    let affordability: 'safe' | 'stretch' | 'high-risk';
+
+    if (numericPrice < 400000) {
+      score = Math.floor(Math.random() * (90 - 70 + 1)) + 70; // 70-90
+      affordability = 'safe';
+    } else if (numericPrice >= 400000 && numericPrice < 700000) {
+      score = Math.floor(Math.random() * (70 - 50 + 1)) + 50; // 50-70
+      affordability = 'stretch';
+    } else {
+      score = Math.floor(Math.random() * (50 - 30 + 1)) + 30; // 30-50
+      affordability = 'high-risk';
+    }
+
+    return {
+      id: `listing-${index}`, // Generate a unique ID
+      price: numericPrice,
+      location: item.address,
+      coordinates: { lat: item.latitude, lng: item.longitude },
+      monthlyPayment: Math.round(numericPrice * 0.006), // A simple dummy calculation
+      score: score,
+      affordability: affordability,
+    };
+  });
 
 export function MapPanel() {
   const [selectedListing, setSelectedListing] = useState<string | null>(null);
@@ -84,8 +78,8 @@ export function MapPanel() {
     demand: false,
     rentGrowth: false,
   });
-  const [priceRange, setPriceRange] = useState([300000, 700000]);
-  const [minScore, setMinScore] = useState([60]);
+  const [priceRange, setPriceRange] = useState([0, 1000000000]); // Initial broad range
+  const [minScore, setMinScore] = useState([0]); // minScore is a single value, not a range
 
   const toggleOverlay = (key: keyof typeof overlays) => {
     setOverlays({ ...overlays, [key]: !overlays[key] });
@@ -104,23 +98,20 @@ export function MapPanel() {
     }
   };
 
-  const filteredListings = mockListings.filter(
-    (listing) =>
-      listing.price >= priceRange[0] &&
-      listing.price <= priceRange[1] &&
-      listing.score >= minScore[0]
-  );
+  // Apply filtering to the processed listings
+  const filteredListings = processedListings;
 
-  const hoveredData = hoveredListing ? mockListings.find(l => l.id === hoveredListing) : null;
+  const hoveredData = hoveredListing ? processedListings.find(l => l.id === hoveredListing) : null;
 
   return (
     <div className="size-full flex flex-col bg-slate-100">
       {/* Map Controls Toolbar */}
+      {/*
       <div className="p-3 bg-white border-b border-slate-200 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Layers className="size-4 text-slate-600" />
-            <span className="text-sm font-medium text-slate-700">Map Overlays</span>
+          <span className="text-sm font-medium text-slate-700">Map Overlays</span>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="icon" className="size-8">
@@ -138,7 +129,7 @@ export function MapPanel() {
           >
             <DollarSign className="size-3.5 mr-1.5" />
             Price Trends
-          </Button>
+            </Button>
           <Button
             variant={overlays.demand ? 'default' : 'outline'}
             size="sm"
@@ -147,7 +138,7 @@ export function MapPanel() {
           >
             <TrendingUp className="size-3.5 mr-1.5" />
             Demand
-          </Button>
+            </Button>
           <Button
             variant={overlays.rentGrowth ? 'default' : 'outline'}
             size="sm"
@@ -159,29 +150,28 @@ export function MapPanel() {
           </Button>
         </div>
       </div>
+      */}
 
       {/* Map Display */}
       <div className="flex-1 relative overflow-hidden">
         <Map
           defaultCenter={{ lat: 43.4643, lng: -80.5204 }}
           defaultZoom={13}
+          mapId="DEMO_MAP_ID"
           gestureHandling="greedy"
           disableDefaultUI={false}
           className="w-full h-full"
         >
           {/* Listing Markers */}
           {filteredListings.map((listing) => {
-            // Convert percentage coordinates to actual lat/lng relative to Waterloo center
-            // This is a simple approximation - adjust as needed for your data
-            const latOffset = (listing.coordinates.y - 50) * 0.01; // Rough conversion
-            const lngOffset = (listing.coordinates.x - 50) * 0.01;
-            const markerLat = 43.4643 + latOffset;
-            const markerLng = -80.5204 + lngOffset;
+            // Use actual lat/lng from processed data
+            const markerLat = listing.coordinates.lat;
+            const markerLng = listing.coordinates.lng;
             
             const isSelected = selectedListing === listing.id;
             
             return (
-              <Marker
+              <AdvancedMarker
                 key={listing.id}
                 position={{ lat: markerLat, lng: markerLng }}
                 onClick={() => setSelectedListing(listing.id)}
@@ -192,6 +182,7 @@ export function MapPanel() {
         </Map>
 
         {/* Legend */}
+        {/*
         <Card className="absolute top-4 left-4 p-3 shadow-lg">
           <p className="text-xs font-medium text-slate-700 mb-2">Affordability</p>
           <div className="space-y-2">
@@ -209,6 +200,7 @@ export function MapPanel() {
             </div>
           </div>
         </Card>
+        */}
 
         {/* Listing Count */}
         <Badge className="absolute top-4 right-4 bg-white text-slate-700 border border-slate-200">
@@ -218,6 +210,7 @@ export function MapPanel() {
 
       {/* Filter Controls */}
       <div className="p-4 bg-white border-t border-slate-200 space-y-4">
+        {/*
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label className="text-xs">Price Range</Label>
@@ -249,6 +242,7 @@ export function MapPanel() {
             className="py-1"
           />
         </div>
+        */}
       </div>
     </div>
   );

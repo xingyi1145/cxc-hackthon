@@ -318,6 +318,7 @@ export function ParametersPanel({
         </Collapsible>
 
         {/* Housing Listings */}
+        {/*
         <Collapsible open={listingsOpen} onOpenChange={setListingsOpen}>
           <Card>
             <CollapsibleTrigger className="w-full">
@@ -396,6 +397,7 @@ export function ParametersPanel({
             </CollapsibleContent>
           </Card>
         </Collapsible>
+        */}
       </div>
     </ScrollArea>
   );

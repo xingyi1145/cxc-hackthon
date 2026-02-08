@@ -8,6 +8,8 @@ from bs4 import BeautifulSoup
 from geopy.geocoders import Nominatim
 from selenium.webdriver.common.by import By
 
+cur_id = 0
+
 def get_page_source(driver, page_number):
     # URL to scrape
     url = f"https://www.remax.ca/find-real-estate?lang=en&pageNumber={page_number}"
@@ -24,6 +26,7 @@ def get_page_source(driver, page_number):
     return page_source
 
 def parse_listings(page_source):
+    global cur_id
     soup = BeautifulSoup(page_source, 'html.parser')
     listings = soup.find_all('div', {'data-testid': 'listing-card'})
     geolocator = Nominatim(user_agent="cxc_scraper")
@@ -57,27 +60,20 @@ def parse_listings(page_source):
             bathrooms_element = listing.find('span', {'data-cy': 'property-baths'})
             bathrooms = bathrooms_element.find('span').text if bathrooms_element else 'N/A'
 
-            property_type_element = listing.find('div', {'class': 'listing-card_property-type__33u_9'})
-            property_type = property_type_element.text.strip() if property_type_element else 'N/A'
+            if (latitude != "N/A"):
+                data = {
+                    'id': cur_id,
+                    'city': city,
+                    'address': address,
+                    'longitude': longitude,
+                    'latitude': latitude,
+                    'price': price,
+                    'bedrooms': bedrooms,
+                    'bathoom': bathrooms,
+                }
+                extracted_data.append(data)
+                cur_id+=1
 
-            acreage_element = listing.find('div', {'class': 'listing-card_lot-size__20fBq'})
-            acreage = acreage_element.text.strip() if acreage_element else 'N/A'
-
-            data = {
-                'City': city,
-                'Address': address,
-                'Longitude': longitude,
-                'Latitude': latitude,
-                'Price': price,
-                'bedrooms': bedrooms,
-                'property type': property_type,
-                'bathrooms': bathrooms,
-                'acreage': acreage,
-                'square footage': 'N/A',
-                'date built': 'N/A',
-                'extra features': 'N/A'
-            }
-            extracted_data.append(data)
         except Exception as e:
             print(f"Error parsing listing: {e}")
             continue
@@ -97,7 +93,7 @@ if __name__ == "__main__":
     driver = webdriver.Chrome(service=service)
 
     all_listings_data = []
-    for page_number in range(1, 5):
+    for page_number in range(1, 2):
         try:
             print(f"Scraping page {page_number}...")
             page_source = get_page_source(driver, page_number)
