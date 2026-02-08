@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Settings, MapPin, DollarSign, Shield, GraduationCap, TrendingUp, Wrench } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select';
@@ -8,6 +8,7 @@ import { MapPanel } from './components/MapPanel';
 import { APIProvider } from '@vis.gl/react-google-maps';
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
 
 interface Priority {
   id: string;
@@ -38,6 +39,38 @@ interface Listing {
 }
 
 export default function App() {
+  // Auth state
+  const [user, setUser] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // Check authentication on load
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch('/api/user');
+        if (res.ok) {
+          const data = await res.json();
+          if (data) {
+            setUser(data);
+          } else {
+            window.location.href = '/login';
+            return;
+          }
+        } else {
+          window.location.href = '/login';
+          return;
+        }
+      } catch (err) {
+        console.error('Auth check failed:', err);
+        window.location.href = '/login';
+        return;
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+    checkAuth();
+  }, []);
+
   // Financial profile state
   const [income, setIncome] = useState('120000');
   const [savings, setSavings] = useState('60000');
@@ -56,10 +89,53 @@ export default function App() {
   ]);
 
   // Listings state
-  const [listings, setListings] = useState<Listing[]>([
-    { id: '1', url: 'https://zillow.com/...', price: '$425,000', location: 'Capitol Hill' },
-    { id: '2', url: 'https://redfin.com/...', price: '$510,000', location: 'Fremont' },
-  ]);
+  const [listings, setListings] = useState<Listing[]>([]);
+
+  // Load saved listings on mount
+  useEffect(() => {
+    const loadListings = async () => {
+      try {
+        console.log('[APP] Fetching listings from:', `${API_BASE_URL}/api/listings?user_id=1`);
+        const response = await fetch(`${API_BASE_URL}/api/listings?user_id=1`);
+        console.log('[APP] Response status:', response.status);
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('[APP] Received data:', data);
+          
+          // API returns array directly, not wrapped in object
+          const listingsArray = Array.isArray(data) ? data : [];
+          
+          // Convert backend listings to frontend format
+          const loadedListings: Listing[] = listingsArray.map((l: any) => ({
+            id: l.id?.toString() || Date.now().toString(),
+            url: l.url,
+            price: l.price || 'Price not available',
+            location: l.location || l.city || 'Unknown location',
+            price_raw: l.price_raw,
+            address: l.address,
+            city: l.city,
+            state: l.state,
+            zip_code: l.zip_code,
+            bedrooms: l.bedrooms,
+            bathrooms: l.bathrooms,
+            square_feet: l.square_feet,
+            property_type: l.property_type,
+            year_built: l.year_built,
+            lot_size: l.acreage,
+            source: l.source,
+          }));
+          
+          setListings(loadedListings);
+          console.log('[APP] Loaded listings from backend:', loadedListings.length, loadedListings);
+        }
+      } catch (error) {
+        console.error('[APP] Error loading listings:', error);
+      }
+    };
+
+    loadListings();
+  }, []); // Empty dependency array means this runs once on mount
 
   // Prepare parameters object for API
   const parameters = {
@@ -93,6 +169,14 @@ export default function App() {
       source: l.source,
     })),
   };
+
+  if (authLoading) {
+    return (
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <APIProvider apiKey={GOOGLE_MAPS_API_KEY}>
@@ -155,7 +239,7 @@ export default function App() {
 
         {/* Center Panel - Chat */}
         <div className="flex-1 min-w-0 bg-slate-50 overflow-y-auto min-h-0">
-          <ChatPanel parameters={parameters} />
+          <ChatPanel parameters={parameters} listings={listings} setListings={setListings} />
         </div>
 
         {/* Right Panel - Map */}

@@ -9,8 +9,10 @@ from flask import Flask, redirect, render_template, session, url_for, request, f
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from listing_scraper import ListingScraper
+from listing import Listing as ListingModel
 
 # Load environment variables
 ENV_FILE = find_dotenv()
@@ -26,8 +28,9 @@ CORS(app)  # Enable CORS for frontend API calls
 
 # Configure Gemini API
 GEMINI_API_KEY = env.get("GEMINI_API_KEY")
+gemini_client = None
 if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
+    gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 
 # Initialize listing scraper
 listing_scraper = ListingScraper()
@@ -51,6 +54,128 @@ class User(db.Model):
 
     def __repr__(self):
         return f'<User {self.email}>'
+
+class SavedListing(db.Model):
+    """Database model for saved property listings"""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    url = db.Column(db.String(500), nullable=False)
+    price = db.Column(db.String(50))
+    price_raw = db.Column(db.Integer)
+    location = db.Column(db.String(200))
+    address = db.Column(db.String(200))
+    city = db.Column(db.String(100))
+    state = db.Column(db.String(50))
+    zip_code = db.Column(db.String(20))
+    latitude = db.Column(db.Float)
+    longitude = db.Column(db.Float)
+    property_type = db.Column(db.String(50))
+    bedrooms = db.Column(db.Float)
+    bathrooms = db.Column(db.Float)
+    square_feet = db.Column(db.Float)
+    acreage = db.Column(db.Float)
+    year_built = db.Column(db.Integer)
+    garage = db.Column(db.String(20))
+    parking = db.Column(db.String(20))
+    basement = db.Column(db.String(50))
+    exterior = db.Column(db.String(50))
+    fireplace = db.Column(db.String(20))
+    heating = db.Column(db.String(50))
+    flooring = db.Column(db.String(50))
+    roof = db.Column(db.String(50))
+    waterfront = db.Column(db.String(20))
+    sewer = db.Column(db.String(50))
+    pool = db.Column(db.String(20))
+    garden = db.Column(db.String(20))
+    balcony = db.Column(db.String(20))
+    source = db.Column(db.String(50))
+    predicted_prices = db.Column(db.Text)  # JSON string
+    prediction_breakdown = db.Column(db.Text)  # JSON string
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    
+    def to_dict(self):
+        """Convert database model to dictionary"""
+        return {
+            'id': self.id,
+            'url': self.url,
+            'price': self.price,
+            'price_raw': self.price_raw,
+            'location': self.location,
+            'address': self.address,
+            'city': self.city,
+            'state': self.state,
+            'zip_code': self.zip_code,
+            'latitude': self.latitude,
+            'longitude': self.longitude,
+            'property_type': self.property_type,
+            'bedrooms': self.bedrooms,
+            'bathrooms': self.bathrooms,
+            'square_feet': self.square_feet,
+            'acreage': self.acreage,
+            'year_built': self.year_built,
+            'garage': self.garage,
+            'parking': self.parking,
+            'basement': self.basement,
+            'exterior': self.exterior,
+            'fireplace': self.fireplace,
+            'heating': self.heating,
+            'flooring': self.flooring,
+            'roof': self.roof,
+            'waterfront': self.waterfront,
+            'sewer': self.sewer,
+            'pool': self.pool,
+            'garden': self.garden,
+            'balcony': self.balcony,
+            'source': self.source,
+            'predicted_prices': json.loads(self.predicted_prices) if self.predicted_prices else None,
+            'prediction_breakdown': json.loads(self.prediction_breakdown) if self.prediction_breakdown else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+    
+    def __repr__(self):
+        return f'<SavedListing {self.location} - {self.price}>'
+
+class ChatMessage(db.Model):
+    """Database model for chat history with AI advisor"""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    message = db.Column(db.Text, nullable=False)  # User's message
+    response = db.Column(db.Text, nullable=False)  # AI's response
+    parameters = db.Column(db.Text)  # JSON string of financial/priority parameters
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    
+    def to_dict(self):
+        """Convert database model to dictionary"""
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'message': self.message,
+            'response': self.response,
+            'parameters': json.loads(self.parameters) if self.parameters else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+    
+    def __repr__(self):
+        return f'<ChatMessage {self.id} - User {self.user_id}>'
+
+class ViewedListing(db.Model):
+    """Database model for tracking listings that users view"""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    listing_id = db.Column(db.Integer, db.ForeignKey('saved_listing.id'), nullable=False)
+    viewed_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    
+    def to_dict(self):
+        """Convert database model to dictionary"""
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'listing_id': self.listing_id,
+            'viewed_at': self.viewed_at.isoformat() if self.viewed_at else None
+        }
+    
+    def __repr__(self):
+        return f'<ViewedListing {self.id} - User {self.user_id} viewed Listing {self.listing_id}>'
 
 # Create tables if they don't exist
 with app.app_context():
@@ -81,7 +206,7 @@ def home():
 
 @app.route("/login")
 def login():
-    redirect_uri = url_for("callback", _external=True)
+    redirect_uri = "http://127.0.0.1:5000/callback"
     print(f"DEBUG: Calculated Callback URL: {redirect_uri}")
     return oauth.auth0.authorize_redirect(
         redirect_uri=redirect_uri
@@ -115,12 +240,20 @@ def callback():
         else:
             print(f"User logged in: {existing_user.email}")
             
-        return redirect(url_for("dashboard"))
+        return redirect("http://127.0.0.1:3000/")
         
     except Exception as e:
         print(f"Login error: {e}")
         flash("Authentication failed.")
-        return redirect(url_for("home"))
+        return redirect("http://127.0.0.1:3000/")
+
+@app.route("/api/user")
+def get_user():
+    """Return the logged-in user session info as JSON"""
+    user = session.get("user")
+    if user:
+        return jsonify(user)
+    return jsonify(None), 401
 
 @app.route("/logout")
 def logout():
@@ -130,7 +263,7 @@ def logout():
         + "/v2/logout?"
         + urlencode(
             {
-                "returnTo": url_for("home", _external=True),
+                "returnTo": "http://127.0.0.1:5000/",
                 "client_id": env.get("AUTH0_CLIENT_ID"),
             },
             quote_via=quote_plus,
@@ -156,17 +289,198 @@ def scrape_listing():
         data = request.get_json()
         url = data.get("url", "")
         
+        print(f"[SCRAPE] Received request for URL: {url}")
+        
         if not url:
+            print("[SCRAPE] Error: No URL provided")
             return jsonify({"error": "URL is required"}), 400
         
         # Scrape the listing
+        print(f"[SCRAPE] Starting scrape for: {url}")
         scraped_data = listing_scraper.scrape(url)
+        print(f"[SCRAPE] Successfully scraped: {scraped_data.get('location', 'Unknown location')}")
         
         return jsonify(scraped_data)
         
     except Exception as e:
-        print(f"Scraping API error: {e}")
+        print(f"[SCRAPE] Error: {e}")
         return jsonify({"error": str(e)}), 500
+
+@app.route("/api/listings", methods=["GET"])
+def get_listings():
+    """Get all saved listings for the current user"""
+    try:
+        # Get user from session (for now, we'll use a default user ID if not logged in)
+        # TODO: Integrate with actual auth system
+        user_id = 1  # Default for testing
+        
+        listings = SavedListing.query.filter_by(user_id=user_id).order_by(SavedListing.created_at.desc()).all()
+        return jsonify([listing.to_dict() for listing in listings])
+        
+    except Exception as e:
+        print(f"Get listings error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/listings", methods=["POST"])
+def save_listing():
+    """Save a listing to the database"""
+    try:
+        data = request.get_json()
+        listing_data = data.get("listing", {})
+        
+        print(f"[SAVE] Received request to save listing: {listing_data.get('location', 'Unknown')}")
+        
+        # Get user from session (for now, we'll use a default user ID if not logged in)
+        user_id = 1  # Default for testing
+        
+        # Create new saved listing
+        saved_listing = SavedListing(
+            user_id=user_id,
+            url=listing_data.get('url'),
+            price=listing_data.get('price'),
+            price_raw=listing_data.get('price_raw'),
+            location=listing_data.get('location'),
+            address=listing_data.get('address'),
+            city=listing_data.get('city'),
+            state=listing_data.get('state'),
+            zip_code=listing_data.get('zip_code'),
+            latitude=listing_data.get('latitude'),
+            longitude=listing_data.get('longitude'),
+            property_type=listing_data.get('property_type'),
+            bedrooms=listing_data.get('bedrooms'),
+            bathrooms=listing_data.get('bathrooms'),
+            square_feet=listing_data.get('square_feet'),
+            acreage=listing_data.get('acreage'),
+            year_built=listing_data.get('year_built'),
+            garage=listing_data.get('garage'),
+            parking=listing_data.get('parking'),
+            basement=listing_data.get('basement'),
+            exterior=listing_data.get('exterior'),
+            fireplace=listing_data.get('fireplace'),
+            heating=listing_data.get('heating'),
+            flooring=listing_data.get('flooring'),
+            roof=listing_data.get('roof'),
+            waterfront=listing_data.get('waterfront'),
+            sewer=listing_data.get('sewer'),
+            pool=listing_data.get('pool'),
+            garden=listing_data.get('garden'),
+            balcony=listing_data.get('balcony'),
+            source=listing_data.get('source'),
+            predicted_prices=json.dumps(listing_data.get('predicted_prices')) if listing_data.get('predicted_prices') else None,
+            prediction_breakdown=json.dumps(listing_data.get('prediction_breakdown')) if listing_data.get('prediction_breakdown') else None
+        )
+        
+        db.session.add(saved_listing)
+        db.session.commit()
+        
+        print(f"[SAVE] Successfully saved listing ID: {saved_listing.id}")
+        
+        return jsonify({
+            "success": True,
+            "listing": saved_listing.to_dict()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"[SAVE] Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/chat-history", methods=["GET"])
+def get_chat_history():
+    """API endpoint to retrieve chat history for a user"""
+    try:
+        user_id = request.args.get('user_id', 1, type=int)  # Default to user 1
+        limit = request.args.get('limit', 50, type=int)  # Default to 50 messages
+        
+        messages = db.session.execute(
+            db.select(ChatMessage)
+            .filter_by(user_id=user_id)
+            .order_by(ChatMessage.created_at.desc())
+            .limit(limit)
+        ).scalars().all()
+        
+        return jsonify({
+            "success": True,
+            "messages": [msg.to_dict() for msg in messages]
+        })
+        
+    except Exception as e:
+        print(f"[CHAT HISTORY] Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/viewed-listings", methods=["GET", "POST"])
+def viewed_listings():
+    """API endpoint to track and retrieve viewed listings"""
+    if request.method == "POST":
+        # Track a viewed listing
+        try:
+            data = request.get_json()
+            user_id = data.get('user_id', 1)  # Default to user 1
+            listing_id = data.get('listing_id')
+            
+            if not listing_id:
+                return jsonify({"error": "listing_id is required"}), 400
+            
+            # Check if already viewed recently (within last hour)
+            recent_view = db.session.execute(
+                db.select(ViewedListing)
+                .filter_by(user_id=user_id, listing_id=listing_id)
+                .filter(ViewedListing.viewed_at > db.func.datetime('now', '-1 hour'))
+            ).scalar_one_or_none()
+            
+            if not recent_view:
+                viewed = ViewedListing(
+                    user_id=user_id,
+                    listing_id=listing_id
+                )
+                db.session.add(viewed)
+                db.session.commit()
+                print(f"[VIEWED] User {user_id} viewed listing {listing_id}")
+            
+            return jsonify({"success": True})
+            
+        except Exception as e:
+            db.session.rollback()
+            print(f"[VIEWED] Error: {e}")
+            return jsonify({"error": str(e)}), 500
+    else:
+        # GET: Retrieve viewed listings
+        try:
+            user_id = request.args.get('user_id', 1, type=int)
+            limit = request.args.get('limit', 50, type=int)
+            
+            viewed = db.session.execute(
+                db.select(ViewedListing)
+                .filter_by(user_id=user_id)
+                .order_by(ViewedListing.viewed_at.desc())
+                .limit(limit)
+            ).scalars().all()
+            
+            # Get the actual listings
+            listing_ids = [v.listing_id for v in viewed]
+            listings = db.session.execute(
+                db.select(SavedListing)
+                .filter(SavedListing.id.in_(listing_ids))
+            ).scalars().all()
+            
+            listings_dict = {l.id: l.to_dict() for l in listings}
+            
+            result = []
+            for v in viewed:
+                if v.listing_id in listings_dict:
+                    result.append({
+                        'viewed_at': v.viewed_at.isoformat(),
+                        'listing': listings_dict[v.listing_id]
+                    })
+            
+            return jsonify({
+                "success": True,
+                "viewed_listings": result
+            })
+            
+        except Exception as e:
+            print(f"[VIEWED] Error: {e}")
+            return jsonify({"error": str(e)}), 500
 
 @app.route("/api/chat", methods=["POST"])
 def chat():
@@ -229,6 +543,8 @@ USER'S PRIORITIES (weighted importance):
         prompt += f"""
 USER'S QUESTION: {user_message}
 
+If the user only provides a greeting, suggest possible questions that they may want to inquire about.
+
 Please provide a comprehensive analysis that includes:
 1. **Financial Fit**: Calculate monthly payment estimates, down payment requirements, and how it fits within their budget
 2. **Key Considerations**: Analyze how each property aligns with their stated priorities (weighted by importance)
@@ -244,11 +560,34 @@ Format your response using markdown with:
 Be specific, use numbers when possible, and provide practical recommendations."""
 
         # Call Gemini API
-        model = genai.GenerativeModel('gemini-2.5-flash')
-        response = model.generate_content(prompt)
+        if not gemini_client:
+            return jsonify({'error': 'Gemini API not configured'}), 500
+        
+        response = gemini_client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=prompt
+        )
+        
+        response_text = response.text
+        
+        # Save chat message to database
+        try:
+            user_id = 1  # Default user for testing, should come from session/auth
+            chat_message = ChatMessage(
+                user_id=user_id,
+                message=user_message,
+                response=response_text.strip(),
+                parameters=json.dumps(parameters) if parameters else None
+            )
+            db.session.add(chat_message)
+            db.session.commit()
+            print(f"[CHAT] Saved message ID: {chat_message.id}")
+        except Exception as e:
+            print(f"[CHAT] Error saving message: {e}")
+            db.session.rollback()
         
         return jsonify({
-            "content": response.text,
+            "content": response_text.strip(),
             "formatted": True
         })
         
@@ -257,4 +596,4 @@ Be specific, use numbers when possible, and provide practical recommendations.""
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=env.get("PORT", 5001), debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)

@@ -1,302 +1,213 @@
 """
-Housing listing scraper for extracting property information from real estate websites.
-Supports Zillow, Realtor.com, Redfin, and other major platforms.
+Housing listing scraper using Gemini AI to extract property information.
+Works with any real estate website URL - Gemini extracts the relevant data.
 """
-import re
+import os
 import json
-import requests
-from typing import Dict, Optional
-from urllib.parse import urlparse
+from typing import Dict
+from google import genai
+from google.genai import types
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Configure Gemini API
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 
 class ListingScraper:
-    """Scraper for extracting housing listing information from URLs"""
+    """Scraper for extracting housing listing information from URLs using Gemini AI"""
     
     def __init__(self):
-        self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate',
-            'Connection': 'keep-alive',
-        }
+        if not GEMINI_API_KEY:
+            print("Warning: GEMINI_API_KEY not found. Scraper will not work.")
+        else:
+            self.client = genai.Client(api_key=GEMINI_API_KEY)
     
     def scrape(self, url: str) -> Dict:
         """
-        Scrape housing listing information from a URL.
+        Extract housing listing information from a URL using Gemini AI.
         
         Args:
-            url: The listing URL to scrape
+            url: The listing URL to analyze (Zillow, Redfin, Realtor.com, etc.)
             
         Returns:
-            Dictionary containing scraped property information
+            Dictionary containing extracted property information
         """
         try:
-            # Determine which scraper to use based on URL
-            domain = urlparse(url).netloc.lower()
+            print(f"[GEMINI SCRAPER] Analyzing URL with Gemini: {url}")
             
-            if 'zillow.com' in domain:
-                return self._scrape_zillow(url)
-            elif 'realtor.com' in domain:
-                return self._scrape_realtor(url)
-            elif 'redfin.com' in domain:
-                return self._scrape_redfin(url)
-            else:
-                # Generic scraper for unknown sites
-                return self._scrape_generic(url)
+            if not hasattr(self, 'client'):
+                return {
+                    'error': 'Gemini API key not configured',
+                    'url': url,
+                    'price': None,
+                    'location': None,
+                }
+            
+            # Ask Gemini to analyze the URL directly
+            property_data = self._extract_with_gemini(url)
+            
+            # Add the URL to the response
+            property_data['url'] = url
+            property_data['source'] = 'gemini-scraper'
+            
+            print(f"[GEMINI SCRAPER] Extracted: {property_data.get('location', 'Unknown')} - {property_data.get('price', 'N/A')}")
+            
+            return property_data
+            
         except Exception as e:
+            print(f"[GEMINI SCRAPER] Error: {e}")
             return {
                 'error': str(e),
                 'url': url,
                 'price': None,
                 'location': None,
-                'raw_data': {}
             }
     
-    def _scrape_zillow(self, url: str) -> Dict:
-        """Scrape Zillow listing"""
+    def _extract_with_gemini(self, url: str) -> Dict:
+        """
+        Use Gemini AI to analyze and extract property information from a URL.
+        
+        Args:
+            url: The property listing URL
+            
+        Returns:
+            Dictionary with extracted property data
+        """
         try:
-            response = requests.get(url, headers=self.headers, timeout=10)
-            response.raise_for_status()
-            html = response.text
+            prompt = f"""Analyze this real estate listing URL and extract all property information.
+
+URL: {url}
+
+Visit the webpage and extract the following information in JSON format. If a field is not found, use null.
+
+Required fields:
+- price: The listing price as a formatted string (e.g., "$500,000")
+- price_raw: The listing price as an integer (e.g., 500000)
+- location: Full location string (e.g., "Seattle, WA 98101")
+- address: Street address
+- city: City name
+- state: State or province code (e.g., "WA", "BC")
+- zip_code: Postal/ZIP code
+
+Property details:
+- bedrooms: Number of bedrooms (float)
+- bathrooms: Number of bathrooms (float)
+- square_feet: Square footage (float)
+- acreage: Lot size in acres (float)
+- property_type: Type (e.g., "Single Family", "Condo", "Townhome")
+- year_built: Year the property was built (integer)
+
+Features (use "Yes" or "No" when found, null otherwise):
+- garage: Does it have a garage?
+- parking: Does it have parking?
+- basement: Basement type (e.g., "Finished", "Partial", "No basement", or null)
+- fireplace: Does it have a fireplace?
+- heating: Heating type (e.g., "forced air", "heat pump")
+- pool: Does it have a pool?
+- waterfront: Is it waterfront?
+
+Return ONLY valid JSON with no additional text or explanation. Use this exact format:
+{{
+  "price": "$XXX,XXX",
+  "price_raw": 000000,
+  "location": "City, State ZIP",
+  "address": "123 Street",
+  "city": "City",
+  "state": "ST",
+  "zip_code": "00000",
+  "bedrooms": 0.0,
+  "bathrooms": 0.0,
+  "square_feet": 0.0,
+  "acreage": 0.0,
+  "property_type": "Type",
+  "year_built": 0000,
+  "garage": "Yes/No",
+  "parking": "Yes/No",
+  "basement": "Type",
+  "fireplace": "Yes/No",
+  "heating": "type",
+  "pool": "Yes/No",
+  "waterfront": "Yes/No"
+}}"""
+
+            # Call Gemini
+            grounding_tool = types.Tool(
+                google_search=types.GoogleSearch()
+            )
+
+            config = types.GenerateContentConfig(
+                tools=[grounding_tool]
+            )
+
+            response = self.client.models.generate_content(
+                model='gemini-2.0-flash',
+                contents=prompt,
+                config=config
+            )
             
-            # Extract price
-            price_match = re.search(r'"price":\s*(\d+)', html)
-            price = price_match.group(1) if price_match else None
+            # Parse the response
+            response_text = response.text.strip()
             
-            # Extract address
-            address_match = re.search(r'"streetAddress":\s*"([^"]+)"', html)
-            city_match = re.search(r'"addressLocality":\s*"([^"]+)"', html)
-            state_match = re.search(r'"addressRegion":\s*"([^"]+)"', html)
-            zip_match = re.search(r'"postalCode":\s*"([^"]+)"', html)
+            # Remove markdown code blocks if present
+            if response_text.startswith('```'):
+                # Remove ```json or ``` at start and ``` at end
+                lines = response_text.split('\n')
+                if lines[0].startswith('```'):
+                    lines = lines[1:]
+                if lines[-1].strip() == '```':
+                    lines = lines[:-1]
+                response_text = '\n'.join(lines)
             
-            address_parts = []
-            if address_match:
-                address_parts.append(address_match.group(1))
-            if city_match:
-                address_parts.append(city_match.group(1))
-            if state_match:
-                address_parts.append(state_match.group(1))
-            if zip_match:
-                address_parts.append(zip_match.group(1))
+            # Parse JSON
+            property_data = json.loads(response_text)
             
-            location = ', '.join(address_parts) if address_parts else None
-            
-            # Extract property details
-            beds_match = re.search(r'"numberOfBedrooms":\s*"?(\d+)"?', html)
-            baths_match = re.search(r'"numberOfBathroomsTotal":\s*"?([\d.]+)"?', html)
-            sqft_match = re.search(r'"floorSize":\s*\{[^}]*"value":\s*(\d+)', html)
-            
-            # Extract property type
-            prop_type_match = re.search(r'"@type":\s*"([^"]+)"', html)
-            property_type = prop_type_match.group(1) if prop_type_match else None
-            
-            # Extract year built
-            year_built_match = re.search(r'"yearBuilt":\s*"?(\d{4})"?', html)
-            
-            # Extract lot size
-            lot_size_match = re.search(r'"lotSize":\s*\{[^}]*"value":\s*([\d.]+)', html)
-            
-            return {
-                'url': url,
-                'price': f'${int(price):,}' if price else None,
-                'price_raw': int(price) if price else None,
-                'location': location or 'Location not found',
-                'address': address_match.group(1) if address_match else None,
-                'city': city_match.group(1) if city_match else None,
-                'state': state_match.group(1) if state_match else None,
-                'zip_code': zip_match.group(1) if zip_match else None,
-                'bedrooms': int(beds_match.group(1)) if beds_match else None,
-                'bathrooms': float(baths_match.group(1)) if baths_match else None,
-                'square_feet': int(sqft_match.group(1)) if sqft_match else None,
-                'property_type': property_type,
-                'year_built': int(year_built_match.group(1)) if year_built_match else None,
-                'lot_size': float(lot_size_match.group(1)) if lot_size_match else None,
-                'source': 'zillow',
-                'raw_data': {
-                    'html_length': len(html),
-                    'has_price': price is not None,
-                    'has_location': location is not None
-                }
-            }
-        except Exception as e:
-            return {
-                'error': f'Zillow scraping error: {str(e)}',
-                'url': url,
+            # Ensure all fields exist
+            default_data = {
                 'price': None,
+                'price_raw': None,
                 'location': None,
-                'raw_data': {}
+                'address': None,
+                'city': None,
+                'state': None,
+                'zip_code': None,
+                'bedrooms': None,
+                'bathrooms': None,
+                'square_feet': None,
+                'acreage': None,
+                'property_type': None,
+                'year_built': None,
+                'garage': None,
+                'parking': None,
+                'basement': None,
+                'fireplace': None,
+                'heating': None,
+                'pool': None,
+                'waterfront': None,
             }
-    
-    def _scrape_realtor(self, url: str) -> Dict:
-        """Scrape Realtor.com listing"""
-        try:
-            response = requests.get(url, headers=self.headers, timeout=10)
-            response.raise_for_status()
-            html = response.text
             
-            # Extract price
-            price_match = re.search(r'"price":\s*(\d+)', html) or re.search(r'\$([\d,]+)', html)
-            price = price_match.group(1).replace(',', '') if price_match else None
+            # Merge with defaults
+            for key in default_data:
+                if key not in property_data or property_data[key] in ['', 'null', 'N/A']:
+                    property_data[key] = default_data[key]
             
-            # Extract address
-            address_match = re.search(r'"streetAddress":\s*"([^"]+)"', html)
-            city_match = re.search(r'"addressLocality":\s*"([^"]+)"', html)
-            state_match = re.search(r'"addressRegion":\s*"([^"]+)"', html)
+            return property_data
             
-            address_parts = []
-            if address_match:
-                address_parts.append(address_match.group(1))
-            if city_match:
-                address_parts.append(city_match.group(1))
-            if state_match:
-                address_parts.append(state_match.group(1))
-            
-            location = ', '.join(address_parts) if address_parts else None
-            
-            # Extract property details
-            beds_match = re.search(r'"bedrooms":\s*"?(\d+)"?', html) or re.search(r'(\d+)\s+bed', html, re.I)
-            baths_match = re.search(r'"bathrooms":\s*"?([\d.]+)"?', html) or re.search(r'(\d+\.?\d*)\s+bath', html, re.I)
-            sqft_match = re.search(r'"squareFootage":\s*"?(\d+)"?', html) or re.search(r'([\d,]+)\s*sq\.?\s*ft', html, re.I)
-            
+        except json.JSONDecodeError as e:
+            print(f"[GEMINI] JSON parse error: {e}")
+            print(f"[GEMINI] Response text: {response_text[:500]}")
             return {
-                'url': url,
-                'price': f'${int(price):,}' if price else None,
-                'price_raw': int(price) if price else None,
-                'location': location or 'Location not found',
-                'address': address_match.group(1) if address_match else None,
-                'city': city_match.group(1) if city_match else None,
-                'state': state_match.group(1) if state_match else None,
-                'bedrooms': int(beds_match.group(1)) if beds_match else None,
-                'bathrooms': float(baths_match.group(1)) if baths_match else None,
-                'square_feet': int(sqft_match.group(1).replace(',', '')) if sqft_match else None,
-                'source': 'realtor.com',
-                'raw_data': {
-                    'html_length': len(html),
-                    'has_price': price is not None,
-                    'has_location': location is not None
-                }
+                'error': 'Failed to parse property data from AI response',
+                'price': None,
+                'location': 'Unable to extract location',
             }
         except Exception as e:
+            print(f"[GEMINI] Gemini extraction error: {e}")
             return {
-                'error': f'Realtor.com scraping error: {str(e)}',
-                'url': url,
+                'error': f'AI extraction failed: {str(e)}',
                 'price': None,
-                'location': None,
-                'raw_data': {}
-            }
-    
-    def _scrape_redfin(self, url: str) -> Dict:
-        """Scrape Redfin listing"""
-        try:
-            response = requests.get(url, headers=self.headers, timeout=10)
-            response.raise_for_status()
-            html = response.text
-            
-            # Extract price
-            price_match = re.search(r'"price":\s*(\d+)', html) or re.search(r'\$([\d,]+)', html)
-            price = price_match.group(1).replace(',', '') if price_match else None
-            
-            # Extract address
-            address_match = re.search(r'"streetAddress":\s*"([^"]+)"', html)
-            city_match = re.search(r'"addressLocality":\s*"([^"]+)"', html)
-            state_match = re.search(r'"addressRegion":\s*"([^"]+)"', html)
-            
-            address_parts = []
-            if address_match:
-                address_parts.append(address_match.group(1))
-            if city_match:
-                address_parts.append(city_match.group(1))
-            if state_match:
-                address_parts.append(state_match.group(1))
-            
-            location = ', '.join(address_parts) if address_parts else None
-            
-            # Extract property details
-            beds_match = re.search(r'"bedrooms":\s*"?(\d+)"?', html) or re.search(r'(\d+)\s+bed', html, re.I)
-            baths_match = re.search(r'"bathrooms":\s*"?([\d.]+)"?', html) or re.search(r'(\d+\.?\d*)\s+bath', html, re.I)
-            sqft_match = re.search(r'"squareFootage":\s*"?(\d+)"?', html) or re.search(r'([\d,]+)\s*sq\.?\s*ft', html, re.I)
-            
-            return {
-                'url': url,
-                'price': f'${int(price):,}' if price else None,
-                'price_raw': int(price) if price else None,
-                'location': location or 'Location not found',
-                'address': address_match.group(1) if address_match else None,
-                'city': city_match.group(1) if city_match else None,
-                'state': state_match.group(1) if state_match else None,
-                'bedrooms': int(beds_match.group(1)) if beds_match else None,
-                'bathrooms': float(baths_match.group(1)) if baths_match else None,
-                'square_feet': int(sqft_match.group(1).replace(',', '')) if sqft_match else None,
-                'source': 'redfin',
-                'raw_data': {
-                    'html_length': len(html),
-                    'has_price': price is not None,
-                    'has_location': location is not None
-                }
-            }
-        except Exception as e:
-            return {
-                'error': f'Redfin scraping error: {str(e)}',
-                'url': url,
-                'price': None,
-                'location': None,
-                'raw_data': {}
-            }
-    
-    def _scrape_generic(self, url: str) -> Dict:
-        """Generic scraper for unknown sites - attempts basic extraction"""
-        try:
-            response = requests.get(url, headers=self.headers, timeout=10)
-            response.raise_for_status()
-            html = response.text
-            
-            # Try to extract price
-            price_patterns = [
-                r'\$([\d,]+)',
-                r'"price":\s*(\d+)',
-                r'price["\']?\s*[:=]\s*["\']?\$?([\d,]+)',
-            ]
-            
-            price = None
-            for pattern in price_patterns:
-                match = re.search(pattern, html)
-                if match:
-                    price = match.group(1).replace(',', '')
-                    break
-            
-            # Try to extract address/location
-            address_patterns = [
-                r'"streetAddress":\s*"([^"]+)"',
-                r'"addressLocality":\s*"([^"]+)"',
-            ]
-            
-            location_parts = []
-            for pattern in address_patterns:
-                match = re.search(pattern, html)
-                if match:
-                    location_parts.append(match.group(1))
-            
-            location = ', '.join(location_parts) if location_parts else 'Location not found'
-            
-            return {
-                'url': url,
-                'price': f'${int(price):,}' if price else None,
-                'price_raw': int(price) if price else None,
-                'location': location,
-                'source': 'generic',
-                'raw_data': {
-                    'html_length': len(html),
-                    'has_price': price is not None,
-                    'has_location': len(location_parts) > 0
-                }
-            }
-        except Exception as e:
-            return {
-                'error': f'Generic scraping error: {str(e)}',
-                'url': url,
-                'price': None,
-                'location': 'Location not found',
-                'raw_data': {}
+                'location': 'Unable to extract location',
             }
 
