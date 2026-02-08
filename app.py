@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from os import environ as env
 from urllib.parse import quote_plus, urlencode
 
@@ -499,16 +500,16 @@ def chat():
         listings = parameters.get("listings", [])
         
         # Build context prompt
-        prompt = f"""You are an expert AI real estate advisor helping users analyze properties based on their financial profile and priorities.
+        prompt = f"""You are a concise AI real estate advisor for A-list Housings, specializing in the Canadian housing market (especially Waterloo Region, ON). Keep responses SHORT and actionable — aim for 150-250 words max.
 
 USER'S FINANCIAL PROFILE:
 - Annual Income: ${financial.get('income', 'N/A')}
 - Savings/Down Payment: ${financial.get('savings', 'N/A')}
-- Monthly Housing Budget: ${financial.get('budget', 'N/A')}
+- Monthly Budget: ${financial.get('budget', 'N/A')}
 - Credit Score: {financial.get('creditScore', 'N/A')}
-- Risk Tolerance: {financial.get('riskTolerance', 50)}/100 ({'Conservative' if financial.get('riskTolerance', 50) < 35 else 'Aggressive' if financial.get('riskTolerance', 50) > 65 else 'Balanced'})
+- Risk Tolerance: {financial.get('riskTolerance', 50)}/100
 
-USER'S PRIORITIES (weighted importance):
+PRIORITIES:
 """
         
         for priority in priorities:
@@ -543,32 +544,47 @@ USER'S PRIORITIES (weighted importance):
         prompt += f"""
 USER'S QUESTION: {user_message}
 
-If the user only provides a greeting, suggest possible questions that they may want to inquire about.
+Rules:
+- If the user greets you, briefly introduce yourself and suggest 2-3 useful questions they could ask.
+- Be direct and specific — use dollar amounts, percentages, and monthly payment estimates.
+- Use **bold** for headers, • for bullet points, ⚠️ for warnings.
+- Keep it under 250 words. No fluff.
+- Focus on actionable advice the user can act on today."""
 
-Please provide a comprehensive analysis that includes:
-1. **Financial Fit**: Calculate monthly payment estimates, down payment requirements, and how it fits within their budget
-2. **Key Considerations**: Analyze how each property aligns with their stated priorities (weighted by importance)
-3. **Potential Concerns**: Identify any red flags, risks, or challenges (e.g., short on down payment, market conditions, etc.)
-4. **Overall Score**: Provide a score out of 100 based on how well the property matches their profile and priorities
-
-Format your response using markdown with:
-- **Bold** for section headers
-- • Bullet points for lists
-- ⚠️ for warnings/concerns
-- Clear, actionable advice
-
-Be specific, use numbers when possible, and provide practical recommendations."""
-
-        # Call Gemini API
+        # Call Gemini API with retry and exponential backoff
         if not gemini_client:
             return jsonify({'error': 'Gemini API not configured'}), 500
         
-        response = gemini_client.models.generate_content(
-            model='gemini-2.0-flash',
-            contents=prompt
-        )
+        max_retries = 3
+        base_delay = 2  # seconds
+        response_text = None
         
-        response_text = response.text
+        for attempt in range(max_retries):
+            try:
+                response = gemini_client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=prompt
+                )
+                response_text = response.text
+                break  # Success, exit retry loop
+            except Exception as api_err:
+                err_str = str(api_err)
+                if '429' in err_str or 'RESOURCE_EXHAUSTED' in err_str:
+                    if attempt < max_retries - 1:
+                        delay = base_delay * (2 ** attempt)  # Exponential backoff: 2, 4, 8 seconds
+                        print(f'[CHAT] Rate limited (attempt {attempt + 1}/{max_retries}), retrying in {delay}s...')
+                        time.sleep(delay)
+                        continue
+                    else:
+                        print(f'[CHAT] Rate limited after {max_retries} attempts: {err_str[:200]}')
+                        return jsonify({
+                            'content': '⚠️ The AI service is temporarily rate-limited. Please wait about a minute and try again.',
+                            'formatted': True
+                        })
+                raise
+        
+        if response_text is None:
+            return jsonify({'error': 'Failed to get response from AI'}), 500
         
         # Save chat message to database
         try:
