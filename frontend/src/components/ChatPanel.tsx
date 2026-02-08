@@ -1,15 +1,24 @@
-import { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles, AlertCircle, TrendingUp, CheckCircle } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Send, Sparkles, AlertCircle, TrendingUp, CheckCircle, X, Home, Plus } from 'lucide-react';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { ScrollArea } from './ui/scroll-area';
 import { Badge } from './ui/badge';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
+import { Input } from './ui/input';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   formatted?: boolean;
+} 
+
+interface Listing {
+  id: string;
+  url: string;
+  price: string;
+  location: string;
 }
 
 interface ChatPanelProps {
@@ -81,6 +90,9 @@ export function ChatPanel({ parameters }: ChatPanelProps) {
   ]);
   const [input, setInput] = useState('');
   const [isThinking, setIsThinking] = useState(false);
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [listingUrl, setListingUrl] = useState('');
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -151,6 +163,24 @@ export function ChatPanel({ parameters }: ChatPanelProps) {
     }
   };
 
+  const addListing = () => {
+    if (listingUrl.trim()) {
+      const newListing: Listing = {
+        id: Date.now().toString(),
+        url: listingUrl,
+        price: '$' + Math.floor(Math.random() * 500000 + 300000).toLocaleString(),
+        location: 'Location TBD',
+      };
+      setListings([...listings, newListing]);
+      setListingUrl('');
+      setIsAddDialogOpen(false);
+    }
+  };
+
+  const removeListing = (id: string) => {
+    setListings(listings.filter(l => l.id !== id));
+  };
+
   const renderMessageContent = (message: Message) => {
     if (!message.formatted) {
       return <p className="whitespace-pre-wrap">{message.content}</p>;
@@ -219,6 +249,71 @@ export function ChatPanel({ parameters }: ChatPanelProps) {
   return (
     <div className="size-full flex flex-col bg-white">
       {/* Chat Messages */}
+      <div className="border-b border-slate-200 bg-slate-50 px-6 py-3">
+          <div className="max-w-3xl mx-auto">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Home className="size-4 text-teal-600" />
+                <span className="text-sm font-medium text-slate-900">Active Listings ({listings.length})</span>
+              </div>
+              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="outline" className="h-7 text-xs">
+                    <Plus className="size-3 mr-1" />
+                    Add Property
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add Property Listing</DialogTitle>
+                    <DialogDescription>
+                      Paste a URL from Zillow, Redfin, or any real estate website to add it to your comparison.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 pt-4">
+                    <div className="space-y-2">
+                      <Input
+                        value={listingUrl}
+                        onChange={(e) => setListingUrl(e.target.value)}
+                        placeholder="https://zillow.com/homedetails/..."
+                        onKeyDown={(e) => e.key === 'Enter' && addListing()}
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button onClick={addListing} disabled={!listingUrl.trim()} className="bg-teal-600 hover:bg-teal-700">
+                        Add Listing
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {listings.map((listing) => (
+                <div
+                  key={listing.id}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm"
+                >
+                  <div>
+                    <span className="font-medium text-slate-900">{listing.price}</span>
+                    <span className="text-slate-500 ml-2">{listing.location}</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-6 -mr-1 hover:bg-rose-50 hover:text-rose-600"
+                    onClick={() => removeListing(listing.id)}
+                  >
+                    <X className="size-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       <div className="flex-1 overflow-hidden">
         <ScrollArea className="h-full">
           <div className="p-6">
