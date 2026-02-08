@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { ScrollArea } from './ui/scroll-area';
 import { Badge } from './ui/badge';
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from './ui/dialog';
 import { Input } from './ui/input';
 
 interface Message {
@@ -256,17 +256,21 @@ export function ChatPanel({ parameters }: ChatPanelProps) {
                 <Home className="size-4 text-teal-600" />
                 <span className="text-sm font-medium text-slate-900">Active Listings ({listings.length})</span>
               </div>
-              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <Dialog>
                 <DialogTrigger asChild>
-                  <Button size="sm" variant="outline" className="h-7 text-xs">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="h-7 text-xs"
+                  >
                     <Plus className="size-3 mr-1" />
                     Add Property
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="bg-white text-slate-900">
                   <DialogHeader>
-                    <DialogTitle>Add Property Listing</DialogTitle>
-                    <DialogDescription>
+                    <DialogTitle style={{ color: 'black', fontSize: '20px' }}>Add Property Listing</DialogTitle>
+                    <DialogDescription style={{ color: '#666', fontSize: '14px' }}>
                       Paste a URL from Zillow, Redfin, or any real estate website to add it to your comparison.
                     </DialogDescription>
                   </DialogHeader>
@@ -277,13 +281,16 @@ export function ChatPanel({ parameters }: ChatPanelProps) {
                         onChange={(e) => setListingUrl(e.target.value)}
                         placeholder="https://zillow.com/homedetails/..."
                         onKeyDown={(e) => e.key === 'Enter' && addListing()}
+                        style={{ backgroundColor: 'white', color: 'black', border: '1px solid #ccc', padding: '8px' }}
                       />
                     </div>
                     <div className="flex justify-end gap-2">
-                      <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                        Cancel
-                      </Button>
-                      <Button onClick={addListing} disabled={!listingUrl.trim()} className="bg-teal-600 hover:bg-teal-700">
+                      <DialogClose asChild>
+                        <Button variant="outline" style={{ backgroundColor: 'white', color: 'black', border: '1px solid #ccc' }}>
+                          Cancel
+                        </Button>
+                      </DialogClose>
+                      <Button onClick={addListing} disabled={!listingUrl.trim()} className="bg-teal-600 hover:bg-teal-700" style={{ backgroundColor: '#0d9488', color: 'white' }}>
                         Add Listing
                       </Button>
                     </div>

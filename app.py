@@ -11,6 +11,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 import google.generativeai as genai
 from listing_scraper import ListingScraper
+from listing import Listing as ListingModel
 
 # Load environment variables
 ENV_FILE = find_dotenv()
@@ -51,6 +52,86 @@ class User(db.Model):
 
     def __repr__(self):
         return f'<User {self.email}>'
+
+class SavedListing(db.Model):
+    """Database model for saved property listings"""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    url = db.Column(db.String(500), nullable=False)
+    price = db.Column(db.String(50))
+    price_raw = db.Column(db.Integer)
+    location = db.Column(db.String(200))
+    address = db.Column(db.String(200))
+    city = db.Column(db.String(100))
+    state = db.Column(db.String(50))
+    zip_code = db.Column(db.String(20))
+    latitude = db.Column(db.Float)
+    longitude = db.Column(db.Float)
+    property_type = db.Column(db.String(50))
+    bedrooms = db.Column(db.Float)
+    bathrooms = db.Column(db.Float)
+    square_feet = db.Column(db.Float)
+    acreage = db.Column(db.Float)
+    year_built = db.Column(db.Integer)
+    garage = db.Column(db.String(20))
+    parking = db.Column(db.String(20))
+    basement = db.Column(db.String(50))
+    exterior = db.Column(db.String(50))
+    fireplace = db.Column(db.String(20))
+    heating = db.Column(db.String(50))
+    flooring = db.Column(db.String(50))
+    roof = db.Column(db.String(50))
+    waterfront = db.Column(db.String(20))
+    sewer = db.Column(db.String(50))
+    pool = db.Column(db.String(20))
+    garden = db.Column(db.String(20))
+    balcony = db.Column(db.String(20))
+    source = db.Column(db.String(50))
+    predicted_prices = db.Column(db.Text)  # JSON string
+    prediction_breakdown = db.Column(db.Text)  # JSON string
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    
+    def to_dict(self):
+        """Convert database model to dictionary"""
+        return {
+            'id': self.id,
+            'url': self.url,
+            'price': self.price,
+            'price_raw': self.price_raw,
+            'location': self.location,
+            'address': self.address,
+            'city': self.city,
+            'state': self.state,
+            'zip_code': self.zip_code,
+            'latitude': self.latitude,
+            'longitude': self.longitude,
+            'property_type': self.property_type,
+            'bedrooms': self.bedrooms,
+            'bathrooms': self.bathrooms,
+            'square_feet': self.square_feet,
+            'acreage': self.acreage,
+            'year_built': self.year_built,
+            'garage': self.garage,
+            'parking': self.parking,
+            'basement': self.basement,
+            'exterior': self.exterior,
+            'fireplace': self.fireplace,
+            'heating': self.heating,
+            'flooring': self.flooring,
+            'roof': self.roof,
+            'waterfront': self.waterfront,
+            'sewer': self.sewer,
+            'pool': self.pool,
+            'garden': self.garden,
+            'balcony': self.balcony,
+            'source': self.source,
+            'predicted_prices': json.loads(self.predicted_prices) if self.predicted_prices else None,
+            'prediction_breakdown': json.loads(self.prediction_breakdown) if self.prediction_breakdown else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+    
+    def __repr__(self):
+        return f'<SavedListing {self.location} - {self.price}>'
 
 # Create tables if they don't exist
 with app.app_context():
@@ -168,6 +249,81 @@ def scrape_listing():
         print(f"Scraping API error: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/listings", methods=["GET"])
+def get_listings():
+    """Get all saved listings for the current user"""
+    try:
+        # Get user from session (for now, we'll use a default user ID if not logged in)
+        # TODO: Integrate with actual auth system
+        user_id = 1  # Default for testing
+        
+        listings = SavedListing.query.filter_by(user_id=user_id).order_by(SavedListing.created_at.desc()).all()
+        return jsonify([listing.to_dict() for listing in listings])
+        
+    except Exception as e:
+        print(f"Get listings error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/listings", methods=["POST"])
+def save_listing():
+    """Save a listing to the database"""
+    try:
+        data = request.get_json()
+        listing_data = data.get("listing", {})
+        
+        # Get user from session (for now, we'll use a default user ID if not logged in)
+        user_id = 1  # Default for testing
+        
+        # Create new saved listing
+        saved_listing = SavedListing(
+            user_id=user_id,
+            url=listing_data.get('url'),
+            price=listing_data.get('price'),
+            price_raw=listing_data.get('price_raw'),
+            location=listing_data.get('location'),
+            address=listing_data.get('address'),
+            city=listing_data.get('city'),
+            state=listing_data.get('state'),
+            zip_code=listing_data.get('zip_code'),
+            latitude=listing_data.get('latitude'),
+            longitude=listing_data.get('longitude'),
+            property_type=listing_data.get('property_type'),
+            bedrooms=listing_data.get('bedrooms'),
+            bathrooms=listing_data.get('bathrooms'),
+            square_feet=listing_data.get('square_feet'),
+            acreage=listing_data.get('acreage'),
+            year_built=listing_data.get('year_built'),
+            garage=listing_data.get('garage'),
+            parking=listing_data.get('parking'),
+            basement=listing_data.get('basement'),
+            exterior=listing_data.get('exterior'),
+            fireplace=listing_data.get('fireplace'),
+            heating=listing_data.get('heating'),
+            flooring=listing_data.get('flooring'),
+            roof=listing_data.get('roof'),
+            waterfront=listing_data.get('waterfront'),
+            sewer=listing_data.get('sewer'),
+            pool=listing_data.get('pool'),
+            garden=listing_data.get('garden'),
+            balcony=listing_data.get('balcony'),
+            source=listing_data.get('source'),
+            predicted_prices=json.dumps(listing_data.get('predicted_prices')) if listing_data.get('predicted_prices') else None,
+            prediction_breakdown=json.dumps(listing_data.get('prediction_breakdown')) if listing_data.get('prediction_breakdown') else None
+        )
+        
+        db.session.add(saved_listing)
+        db.session.commit()
+        
+        return jsonify({
+            "success": True,
+            "listing": saved_listing.to_dict()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Save listing error: {e}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/api/chat", methods=["POST"])
 def chat():
     """API endpoint for Gemini-powered chat with financial analysis"""
@@ -231,6 +387,9 @@ USER'S QUESTION: {user_message}
 
 If the user only provides a greeting, suggest possible questions that they may want to inquire about.
 
+When the user asks about a specific property or mentions a property URL, create a listing for tracking. After your analysis, include a structured listing marker:
+SAVE_LISTING_START{{"url": "property_url", "price": "$XXX,XXX", "price_raw": 000000, "location": "City, State", "city": "City", "state": "State", "bedrooms": X, "bathrooms": X, "property_type": "Single Family", "square_feet": XXXX}}SAVE_LISTING_END
+
 Please provide a comprehensive analysis that includes:
 1. **Financial Fit**: Calculate monthly payment estimates, down payment requirements, and how it fits within their budget
 2. **Key Considerations**: Analyze how each proper  ty aligns with their stated priorities (weighted by importance)
@@ -249,9 +408,53 @@ Be specific, use numbers when possible, and provide practical recommendations.""
         model = genai.GenerativeModel('gemini-2.5-flash')
         response = model.generate_content(prompt)
         
+        response_text = response.text
+        saved_listings = []
+        
+        # Check if Gemini wants to save a listing
+        if 'SAVE_LISTING_START' in response_text and 'SAVE_LISTING_END' in response_text:
+            # Extract listing data
+            start_idx = response_text.find('SAVE_LISTING_START') + len('SAVE_LISTING_START')
+            end_idx = response_text.find('SAVE_LISTING_END')
+            listing_json = response_text[start_idx:end_idx].strip()
+            
+            try:
+                listing_data = json.loads(listing_json)
+                
+                # Get user from session (default to user 1 for testing)
+                user_id = 1
+                
+                # Create and save listing
+                saved_listing = SavedListing(
+                    user_id=user_id,
+                    url=listing_data.get('url'),
+                    price=listing_data.get('price'),
+                    price_raw=listing_data.get('price_raw'),
+                    location=listing_data.get('location'),
+                    city=listing_data.get('city'),
+                    state=listing_data.get('state'),
+                    property_type=listing_data.get('property_type'),
+                    bedrooms=listing_data.get('bedrooms'),
+                    bathrooms=listing_data.get('bathrooms'),
+                    square_feet=listing_data.get('square_feet'),
+                    acreage=listing_data.get('acreage'),
+                    source='gemini-created'
+                )
+                
+                db.session.add(saved_listing)
+                db.session.commit()
+                saved_listings.append(saved_listing.to_dict())
+                
+                # Remove the save marker from response
+                response_text = response_text[:response_text.find('SAVE_LISTING_START')] + response_text[end_idx + len('SAVE_LISTING_END'):]
+                
+            except Exception as e:
+                print(f"Error saving listing from Gemini: {e}")
+        
         return jsonify({
-            "content": response.text,
-            "formatted": True
+            "content": response_text.strip(),
+            "formatted": True,
+            "saved_listings": saved_listings
         })
         
     except Exception as e:
