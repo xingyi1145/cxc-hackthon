@@ -3,14 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeHouse - Survive the Mortgage</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <title>Housing Affordability Stress Tester</title>
 </head>
 <body>
-    <div class="container">
-        <h1>Welcome to the Housing Affordability Stress Tester</h1>
-        <p>Please log in to access the application.</p>
-        <a href="{{ url_for('login') }}" class="btn">Log in with Auth0</a>
-    </div>
+
+    <!-- Navigation -->
+    <header>
+        <div class="nav-container">
+            <a href="#" class="logo">SafeHouse</a>
+            <div class="nav-links">
+                <a href="{{ url_for('login') }}" class="btn btn-secondary" style="margin-left: 0; padding: 0.5rem 1rem;">Log In</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Don't just buy a house.<br>Survive the mortgage.</h1>
+            <p>Advanced AI stress testing for your future home. Predict bankruptcy magnitude, forecast 5-year price trends, and get smart financial advice.</p>
+            <div class="hero-cta">
+                <a href="{{ url_for('login') }}" class="btn btn-primary">Get Started Now</a>
+            </div>
+        </div>
+        
+        <div class="hero-image">
+            <!-- Placeholder for dashboard screenshot -->
+            <img src="{{ url_for('static', filename='price_trajectory.png') }}" alt="SafeHouse Dashboard Preview">
+        </div>
+    </section>
+
+    <!-- Features Grid -->
+    <section class="features">
+        <div class="features-container">
+            <!-- Feature 1 -->
+            <div class="feature-card">
+                <div class="feature-icon">⚠️</div>
+                <h3>AI Stress Testing</h3>
+                <p>Quantify your financial resilience. Our algorithms test your ability to withstand interest rate spikes and market downturns in real-time.</p>
+            </div>
+
+            <!-- Feature 2 -->
+            <div class="feature-card">
+                <div class="feature-icon">📈</div>
+                <h3>5-Year Forecast</h3>
+                <p>Don't fly blind. We use advanced machine learning models to project property values 5 years into the future based on economic indicators.</p>
+            </div>
+
+            <!-- Feature 3 -->
+            <div class="feature-card">
+                <div class="feature-icon">🤖</div>
+                <h3>Smart Analysis</h3>
+                <p>Powered by Gemini. Get a personalized "Buy" or "Wait" recommendation tailored to your unique financial portfolio stability.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2026 SafeHouse AI. All rights reserved. | <a href="#" style="color: #cbd5e1; text-decoration: none;">Privacy Policy</a></p>
+    </footer>
+
 </body>
 </html>

@@ -1,71 +1,195 @@
+:root {
+    --primary-color: #10b981; /* Emerald 500 */
+    --primary-hover: #059669; /* Emerald 600 */
+    --secondary-color: #1e293b; /* Slate 800 */
+    --background-color: #f8fafc; /* Slate 50 */
+    --text-color: #334155; /* Slate 700 */
+    --text-light: #64748b; /* Slate 500 */
+    --white: #ffffff;
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --radius: 0.5rem;
+}
+
 body {
-    font-family: Arial, sans-serif;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     margin: 0;
     padding: 0;
-    background-color: #f4f4f4;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    line-height: 1.6;
 }
 
+/* Header & Nav */
 header {
-    background: #35424a;
-    color: #ffffff;
-    padding: 10px 0;
+    background: var(--white);
+    border-bottom: 1px solid #e2e8f0;
+    padding: 1rem 0;
+}
+
+.nav-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--secondary-color);
+    text-decoration: none;
+}
+
+.nav-links a {
+    color: var(--text-color);
+    text-decoration: none;
+    margin-left: 20px;
+    font-weight: 500;
+}
+
+.nav-links a:hover {
+    color: var(--primary-color);
+}
+
+/* Hero Section */
+.hero {
+    padding: 5rem 20px;
     text-align: center;
+    background: linear-gradient(to bottom, #f8fafc, #e2e8f0);
 }
 
-h1 {
-    margin: 0;
+.hero-content {
+    max-width: 800px;
+    margin: 0 auto;
 }
 
-.container {
-    width: 80%;
-    margin: auto;
+.hero h1 {
+    font-size: 3rem;
+    color: var(--secondary-color);
+    margin-bottom: 1rem;
+    line-height: 1.2;
+}
+
+.hero p {
+    font-size: 1.25rem;
+    color: var(--text-light);
+    margin-bottom: 2.5rem;
+}
+
+.hero-image {
+    margin-top: 3rem;
+    box-shadow: var(--shadow-md);
+    border-radius: var(--radius);
     overflow: hidden;
+    background: var(--white);
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
-footer {
-    background: #35424a;
-    color: #ffffff;
-    text-align: center;
-    padding: 10px 0;
-    position: relative;
-    bottom: 0;
+.hero-image img {
     width: 100%;
+    height: auto;
+    display: block;
 }
 
-button {
-    background: #35424a;
-    color: #ffffff;
+/* Features Grid */
+.features {
+    padding: 5rem 20px;
+    background: var(--white);
+}
+
+.features-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+}
+
+.feature-card {
+    background: var(--background-color);
+    padding: 2rem;
+    border-radius: var(--radius);
+    text-align: center;
+    transition: transform 0.2s;
+}
+
+.feature-card:hover {
+    transform: translateY(-5px);
+}
+
+.feature-card h3 {
+    color: var(--secondary-color);
+    margin-top: 1rem;
+    font-size: 1.5rem;
+}
+
+.feature-card p {
+    color: var(--text-light);
+}
+
+.feature-icon {
+    font-size: 2.5rem;
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+}
+
+/* Buttons */
+.btn {
+    display: inline-block;
+    padding: 0.75rem 2rem;
+    border-radius: var(--radius);
+    text-decoration: none;
+    font-weight: 600;
+    transition: background-color 0.2s;
     border: none;
-    padding: 10px 20px;
     cursor: pointer;
 }
 
-button:hover {
-    background: #45a049;
+.btn-primary {
+    background-color: var(--primary-color);
+    color: var(--white);
+    font-size: 1.125rem;
 }
+
+.btn-primary:hover {
+    background-color: var(--primary-hover);
+}
+
+.btn-secondary {
+    background-color: transparent;
+    border: 1px solid #cbd5e1;
+    color: var(--secondary-color);
+}
+
+.btn-secondary:hover {
+    background-color: #f1f5f9;
+}
+
+/* Footer */
+footer {
+    background: var(--secondary-color);
+    color: var(--white);
+    padding: 2rem 0;
+    text-align: center;
+}
+
+/* Legacy Support / Utilities (kept simplified) */
+.container {
+    max-width: 80%; /* Match old container for legacy pages extending layout.html (if any rely on style.css) */
+    margin: auto;
+    overflow: hidden; /* Match old overflow property */
+    /* Add padding to match new cleaner style if used */
+}
+
+/* Adjust old global container specific to layout.html pages if needed, 
+   but new index.html uses specific classes (.nav-container, .features-container, .hero-content) 
+   so conflicts are minimal. */
 
 .form-group {
     margin: 15px 0;
-}
-
-input[type="text"],
-input[type="number"],
-input[type="email"] {
-    width: 100%;
-    padding: 10px;
-    margin: 5px 0 20px 0;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-}
-
-input[type="submit"] {
-    background-color: #35424a;
-    color: white;
-    border: none;
-    padding: 10px 15px;
-    cursor: pointer;
-}
-
-input[type="submit"]:hover {
-    background-color: #45a049;
 }
