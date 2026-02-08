@@ -8,7 +8,7 @@ import { MapPanel } from './components/MapPanel';
 import { APIProvider } from '@vis.gl/react-google-maps';
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
 interface Priority {
   id: string;
@@ -128,51 +128,9 @@ export default function App() {
     },
   ]);
 
-  // Load saved listings on mount
-  useEffect(() => {
-    const loadListings = async () => {
-      try {
-        console.log('[APP] Fetching listings from:', `${API_BASE_URL}/api/listings?user_id=1`);
-        const response = await fetch(`${API_BASE_URL}/api/listings?user_id=1`);
-        console.log('[APP] Response status:', response.status);
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log('[APP] Received data:', data);
-          
-          // API returns array directly, not wrapped in object
-          const listingsArray = Array.isArray(data) ? data : [];
-          
-          // Convert backend listings to frontend format
-          const loadedListings: Listing[] = listingsArray.map((l: any) => ({
-            id: l.id?.toString() || Date.now().toString(),
-            url: l.url,
-            price: l.price || 'Price not available',
-            location: l.location || l.city || 'Unknown location',
-            price_raw: l.price_raw,
-            address: l.address,
-            city: l.city,
-            state: l.state,
-            zip_code: l.zip_code,
-            bedrooms: l.bedrooms,
-            bathrooms: l.bathrooms,
-            square_feet: l.square_feet,
-            property_type: l.property_type,
-            year_built: l.year_built,
-            lot_size: l.acreage,
-            source: l.source,
-          }));
-          
-          setListings(loadedListings);
-          console.log('[APP] Loaded listings from backend:', loadedListings.length, loadedListings);
-        }
-      } catch (error) {
-        console.error('[APP] Error loading listings:', error);
-      }
-    };
-
-    loadListings();
-  }, []); // Empty dependency array means this runs once on mount
+  // Demo listings are pre-populated above — no need to load from backend
+  // Backend listings can be loaded later if needed by uncommenting the useEffect below
+  // useEffect(() => { loadListings(); }, []);
 
   // Prepare parameters object for API
   const parameters = {
