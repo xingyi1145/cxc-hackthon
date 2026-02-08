@@ -1,5 +1,5 @@
 def main():
-    print("Hello from cxc-hackthon!")
+    print("Hello from A-list housings!")
 
 
 if __name__ == "__main__":

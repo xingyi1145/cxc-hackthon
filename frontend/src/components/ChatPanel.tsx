@@ -46,9 +46,10 @@ interface ChatPanelProps {
 }
 
 const quickPrompts = [
-  "Is this affordable?",
-  "Best option for my priorities",
-  "Market outlook next 6 months"
+  "Compare these 3 listings for me",
+  "Can I afford the $750K home?",
+  "Which property is the best investment?",
+  "What's the stress test on my budget?"
 ];
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
@@ -63,69 +64,29 @@ export function ChatPanel({ parameters, listings, setListings }: ChatPanelProps)
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Load chat history on mount
+  // Always show demo conversation on load (skip backend history)
   useEffect(() => {
-    const loadChatHistory = async () => {
-      try {
-        console.log('[CHAT] Loading chat history...');
-        const response = await fetch(`${API_BASE_URL}/api/chat-history?user_id=1&limit=50`);
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log('[CHAT] Received chat history:', data);
-          
-          if (data.success && data.messages && data.messages.length > 0) {
-            // Convert backend messages to frontend format
-            const loadedMessages: Message[] = [];
-            
-            // Messages come in reverse order (newest first), so reverse them
-            const sortedMessages = [...data.messages].reverse();
-            
-            sortedMessages.forEach((msg: any) => {
-              // Add user message
-              loadedMessages.push({
-                id: `user-${msg.id}`,
-                role: 'user',
-                content: msg.message,
-                formatted: false,
-              });
-              
-              // Add assistant response
-              loadedMessages.push({
-                id: `assistant-${msg.id}`,
-                role: 'assistant',
-                content: msg.response,
-                formatted: true,
-              });
-            });
-            
-            setMessages(loadedMessages);
-            console.log('[CHAT] Loaded', loadedMessages.length, 'messages');
-          } else {
-            // No history, show welcome message
-            setMessages([{
-              id: '1',
-              role: 'assistant',
-              content: "Hi! I'm your AI real estate advisor. I'll help you analyze properties based on your financial profile and priorities. Add some listings to get started, or ask me anything about the housing market!",
-              formatted: false,
-            }]);
-          }
-        }
-      } catch (error) {
-        console.error('[CHAT] Error loading chat history:', error);
-        // Show welcome message on error
-        setMessages([{
-          id: '1',
-          role: 'assistant',
-          content: "Hi! I'm your AI real estate advisor. I'll help you analyze properties based on your financial profile and priorities. Add some listings to get started, or ask me anything about the housing market!",
-          formatted: false,
-        }]);
-      } finally {
-        setIsLoadingHistory(false);
-      }
-    };
-
-    loadChatHistory();
+    setMessages([
+      {
+        id: 'welcome',
+        role: 'assistant',
+        content: "Welcome to A-list Housings! I'm your AI real estate advisor for the Waterloo Region. I can see you have 3 active listings loaded. Here's what I can help you with:\n\n**Quick Actions:**\n• Compare all your listings side-by-side\n• Run a mortgage stress test on your budget\n• Analyze which property best fits your priorities\n• Estimate 5-year price appreciation\n\nTry asking me something like \"Can I afford the $750K home on University Ave?\" to get started!",
+        formatted: true,
+      },
+      {
+        id: 'demo-user-1',
+        role: 'user',
+        content: 'Compare these 3 listings for me',
+        formatted: false,
+      },
+      {
+        id: 'demo-assistant-1',
+        role: 'assistant',
+        content: "**Listing Comparison — Waterloo Region**\n\n**1. 200 University Ave W, Waterloo — $750,000**\n• 3 bed / 2 bath / 1,600 sqft Single Family\n• Monthly payment (5% down): ~$4,200/mo\n• Down payment needed: $37,500\n• Budget fit: ⚠️ Exceeds your $3,500/mo budget by $700\n\n**2. 10 Victoria St S, Kitchener — $485,000**\n• 2 bed / 1 bath / 900 sqft Condo\n• Monthly payment (5% down): ~$2,700/mo\n• Down payment needed: $24,250\n• Budget fit: ✅ Within your budget with $800/mo cushion\n\n**3. 100 Regina St S, Waterloo — $920,000**\n• 4 bed / 3 bath / 2,400 sqft Single Family\n• Monthly payment (5% down): ~$5,150/mo\n• Down payment needed: $46,000\n• Budget fit: ⚠️ Significantly over budget\n\n**Recommendation:** The Kitchener condo at $485K is the safest financial choice. The University Ave property could work if you increase your down payment to 15%+ to lower monthly costs.",
+        formatted: true,
+      },
+    ]);
+    setIsLoadingHistory(false);
   }, []);
 
   useEffect(() => {

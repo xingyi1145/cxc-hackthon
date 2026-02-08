@@ -8,7 +8,7 @@ import { MapPanel } from './components/MapPanel';
 import { APIProvider } from '@vis.gl/react-google-maps';
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
 interface Priority {
   id: string;
@@ -88,54 +88,49 @@ export default function App() {
     { id: 'renovation', label: 'Renovation Tolerance', icon: Wrench, value: 30, description: 'Willingness to do repairs' },
   ]);
 
-  // Listings state
-  const [listings, setListings] = useState<Listing[]>([]);
+  // Listings state - pre-populated with demo listings
+  const [listings, setListings] = useState<Listing[]>([
+    {
+      id: 'demo-1',
+      url: 'https://www.realtor.ca/real-estate/28349881/3-bed-2-bath-waterloo-on',
+      price: '$750,000',
+      location: '200 University Ave. W, Waterloo, ON, N2L 3G1',
+      price_raw: 750000,
+      bedrooms: 3,
+      bathrooms: 2,
+      square_feet: 1600,
+      property_type: 'Single Family',
+      source: 'demo',
+    },
+    {
+      id: 'demo-2',
+      url: 'https://www.realtor.ca/real-estate/28450012/2-bed-1-bath-waterloo-on',
+      price: '$485,000',
+      location: '10 Victoria Street South, Kitchener, ON',
+      price_raw: 485000,
+      bedrooms: 2,
+      bathrooms: 1,
+      square_feet: 900,
+      property_type: 'Condo',
+      source: 'demo',
+    },
+    {
+      id: 'demo-3',
+      url: 'https://www.realtor.ca/real-estate/28512034/4-bed-3-bath-waterloo-on',
+      price: '$920,000',
+      location: '100 Regina Street South, Waterloo, ON N2J 4A8',
+      price_raw: 920000,
+      bedrooms: 4,
+      bathrooms: 3,
+      square_feet: 2400,
+      property_type: 'Single Family',
+      source: 'demo',
+    },
+  ]);
 
-  // Load saved listings on mount
-  useEffect(() => {
-    const loadListings = async () => {
-      try {
-        console.log('[APP] Fetching listings from:', `${API_BASE_URL}/api/listings?user_id=1`);
-        const response = await fetch(`${API_BASE_URL}/api/listings?user_id=1`);
-        console.log('[APP] Response status:', response.status);
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log('[APP] Received data:', data);
-          
-          // API returns array directly, not wrapped in object
-          const listingsArray = Array.isArray(data) ? data : [];
-          
-          // Convert backend listings to frontend format
-          const loadedListings: Listing[] = listingsArray.map((l: any) => ({
-            id: l.id?.toString() || Date.now().toString(),
-            url: l.url,
-            price: l.price || 'Price not available',
-            location: l.location || l.city || 'Unknown location',
-            price_raw: l.price_raw,
-            address: l.address,
-            city: l.city,
-            state: l.state,
-            zip_code: l.zip_code,
-            bedrooms: l.bedrooms,
-            bathrooms: l.bathrooms,
-            square_feet: l.square_feet,
-            property_type: l.property_type,
-            year_built: l.year_built,
-            lot_size: l.acreage,
-            source: l.source,
-          }));
-          
-          setListings(loadedListings);
-          console.log('[APP] Loaded listings from backend:', loadedListings.length, loadedListings);
-        }
-      } catch (error) {
-        console.error('[APP] Error loading listings:', error);
-      }
-    };
-
-    loadListings();
-  }, []); // Empty dependency array means this runs once on mount
+  // Demo listings are pre-populated above — no need to load from backend
+  // Backend listings can be loaded later if needed by uncommenting the useEffect below
+  // useEffect(() => { loadListings(); }, []);
 
   // Prepare parameters object for API
   const parameters = {
@@ -188,7 +183,7 @@ export default function App() {
             <MapPin className="size-6 text-white" />
           </div>
           <div>
-            <h1 className="text-slate-900">placeholder</h1>
+            <h1 className="text-slate-900">A-list Housings</h1>
             <p className="text-xs text-slate-500">Smart Real Estate Analysis</p>
           </div>
         </div>
@@ -201,7 +196,7 @@ export default function App() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="seattle">Seattle, WA</SelectItem>
+                <SelectItem value="seattle">Waterloo, ON</SelectItem>
                 <SelectItem value="portland">Portland, OR</SelectItem>
                 <SelectItem value="san-francisco">San Francisco, CA</SelectItem>
                 <SelectItem value="austin">Austin, TX</SelectItem>
