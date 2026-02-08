@@ -1,4 +1,4 @@
-# Housing Price Prediction System - Technical Summary
+# A-list housings - Technical Summary
 
 ## System Overview
 

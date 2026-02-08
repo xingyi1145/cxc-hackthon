@@ -1,4 +1,4 @@
-# Housing Price Prediction System
+# A-list housings - Prediction System
 
 A statistically robust system that predicts house prices 5 years into the future by decomposing the prediction into market-level growth and house-specific features.
 

@@ -1,4 +1,4 @@
-# Housing Affordability & Price Prediction System
+# A-list housings
 
 A comprehensive platform combining a user feedback-driven web application for housing affordability with a statistically robust machine learning system for 5-year housing price forecasts.
 

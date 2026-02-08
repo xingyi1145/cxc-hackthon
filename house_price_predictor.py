@@ -1,5 +1,5 @@
 """
-Housing Price Prediction System
+A-list housings - Price Prediction System
 
 This system predicts house prices 5 years into the future by decomposing the prediction into:
 1. Market-level growth (SARIMA model on HPI time series)
@@ -385,7 +385,7 @@ class HousePricePredictor:
     def train(self, hpi_filepath='data/18100205.csv', housing_filepath='data/cleaned_canada.csv'):
         """Train both components of the prediction system"""
         print("="*80)
-        print("HOUSING PRICE PREDICTION SYSTEM - TRAINING")
+        print("A-LIST HOUSINGS - TRAINING")
         print("="*80)
         
         # 1. Train SARIMA on HPI
