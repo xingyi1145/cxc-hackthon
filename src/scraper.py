@@ -93,7 +93,7 @@ if __name__ == "__main__":
     driver = webdriver.Chrome(service=service)
 
     all_listings_data = []
-    for page_number in range(1, 2):
+    for page_number in range(1, 101):
         try:
             print(f"Scraping page {page_number}...")
             page_source = get_page_source(driver, page_number)
