@@ -4,4 +4,12 @@ python-dotenv
 authlib
 requests
 flask-cors
-google-generativeai
+google-genai
+statsmodels
+xgboost
+scikit-learn
+pandas
+numpy
+scipy
+matplotlib
+seaborn

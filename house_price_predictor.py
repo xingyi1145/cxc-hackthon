@@ -536,9 +536,18 @@ class HousePricePredictor:
         print(f"\nModels saved to {filepath}")
     
     def load_models(self, filepath='models/predictor.pkl'):
-        """Load trained models"""
+        """Load trained models (handles pickle saved from __main__)"""
+        import io
+        
+        class _Unpickler(pickle.Unpickler):
+            """Redirect __main__ references to house_price_predictor module"""
+            def find_class(self, module, name):
+                if module == '__main__':
+                    module = 'house_price_predictor'
+                return super().find_class(module, name)
+        
         with open(filepath, 'rb') as f:
-            data = pickle.load(f)
+            data = _Unpickler(f).load()
         self.hpi_forecaster = data['hpi_forecaster']
         self.hedonic_model = data['hedonic_model']
         self.market_growth_factor = data['market_growth_factor']

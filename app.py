@@ -14,6 +14,7 @@ from google import genai
 from google.genai import types
 from listing_scraper import ListingScraper
 from listing import Listing as ListingModel
+from house_price_predictor import HousePricePredictor
 
 # Load environment variables
 ENV_FILE = find_dotenv()
@@ -35,6 +36,20 @@ if GEMINI_API_KEY:
 
 # Initialize listing scraper
 listing_scraper = ListingScraper()
+
+# Initialize ML price predictor
+house_predictor = None
+try:
+    import os as _os
+    _model_path = 'models/predictor.pkl'
+    if _os.path.exists(_model_path):
+        house_predictor = HousePricePredictor()
+        house_predictor.load_models(_model_path)
+        print('[INIT] ML price predictor loaded successfully')
+    else:
+        print(f'[INIT] ML model not found at {_model_path} — predictions will be unavailable')
+except Exception as _e:
+    print(f'[INIT] Failed to load ML predictor: {_e}')
 
 # --- Database Setup ---
 class Base(DeclarativeBase):
@@ -301,10 +316,67 @@ def scrape_listing():
         scraped_data = listing_scraper.scrape(url)
         print(f"[SCRAPE] Successfully scraped: {scraped_data.get('location', 'Unknown location')}")
         
+        # Run ML price prediction if model is available and we have a price
+        if house_predictor and scraped_data.get('price_raw'):
+            try:
+                listing_obj = ListingModel.from_dict(scraped_data)
+                if listing_obj.predict_future_prices(predictor=house_predictor):
+                    def to_native(obj):
+                        if isinstance(obj, dict):
+                            return {str(k): to_native(v) for k, v in obj.items()}
+                        elif isinstance(obj, (list, tuple)):
+                            return [to_native(i) for i in obj]
+                        elif hasattr(obj, 'item'):
+                            return obj.item()
+                        return obj
+                    scraped_data['predicted_prices'] = to_native(listing_obj.predicted_prices)
+                    scraped_data['prediction_breakdown'] = to_native(listing_obj.prediction_breakdown)
+                    print(f"[SCRAPE] ML prediction attached: 5yr = ${listing_obj.get_5_year_prediction():,.0f}")
+                else:
+                    print(f"[SCRAPE] ML prediction failed: {listing_obj.error}")
+            except Exception as pred_err:
+                print(f"[SCRAPE] ML prediction error: {pred_err}")
+        
         return jsonify(scraped_data)
         
     except Exception as e:
         print(f"[SCRAPE] Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/predict", methods=["POST"])
+def predict_listing():
+    """API endpoint to run ML price prediction on a listing (used for demo listings)"""
+    try:
+        data = request.get_json()
+        
+        if not house_predictor:
+            return jsonify({"error": "ML model not loaded"}), 500
+        
+        price_raw = data.get('price_raw')
+        if not price_raw:
+            return jsonify({"error": "price_raw is required"}), 400
+        
+        listing_obj = ListingModel.from_dict(data)
+        if listing_obj.predict_future_prices(predictor=house_predictor):
+            # Convert numpy types to native Python for JSON serialization
+            def to_native(obj):
+                if isinstance(obj, dict):
+                    return {str(k): to_native(v) for k, v in obj.items()}
+                elif isinstance(obj, (list, tuple)):
+                    return [to_native(i) for i in obj]
+                elif hasattr(obj, 'item'):  # numpy scalar
+                    return obj.item()
+                return obj
+            
+            return jsonify({
+                "predicted_prices": to_native(listing_obj.predicted_prices),
+                "prediction_breakdown": to_native(listing_obj.prediction_breakdown)
+            })
+        else:
+            return jsonify({"error": listing_obj.error or "Prediction failed"}), 500
+            
+    except Exception as e:
+        print(f"[PREDICT] Error: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/listings", methods=["GET"])
@@ -500,7 +572,9 @@ def chat():
         listings = parameters.get("listings", [])
         
         # Build context prompt
-        prompt = f"""You are a concise AI real estate advisor for A-list Housings, specializing in the Canadian housing market (especially Waterloo Region, ON). Keep responses SHORT and actionable — aim for 150-250 words max.
+        prompt = f"""You are an expert AI real estate and investment advisor for A-list Housings. 
+You are powered by a custom backend Machine Learning model that predicts future house prices. 
+Whenever a user asks about investments, future value, appreciation, or compares properties, you MUST use the 'predicted_prices' and 'prediction_breakdown' data provided in the JSON. Do not guess future prices; rely strictly on the model's data.
 
 USER'S FINANCIAL PROFILE:
 - Annual Income: ${financial.get('income', 'N/A')}
@@ -516,7 +590,7 @@ PRIORITIES:
             prompt += f"- {priority.get('label', '')}: {priority.get('value', 0)}% - {priority.get('description', '')}\n"
         
         if listings:
-            prompt += f"\nPROPERTIES TO ANALYZE:\n"
+            prompt += f"\nPROPERTIES TO ANALYZE (Including ML Model Predictions):\n"
             for listing in listings:
                 # Include scraped data in JSON format
                 listing_data = {
@@ -534,12 +608,13 @@ PRIORITIES:
                     'property_type': listing.get('property_type'),
                     'year_built': listing.get('year_built'),
                     'lot_size': listing.get('lot_size'),
-                    'source': listing.get('source', 'unknown')
+                    'source': listing.get('source', 'unknown'),
+                    'predicted_prices': listing.get('predicted_prices', 'No prediction available'),
+                    'prediction_breakdown': listing.get('prediction_breakdown', 'No breakdown available')
                 }
                 
                 prompt += f"\nProperty {listing.get('location', 'Unknown')}:\n"
                 prompt += f"JSON Data: {json.dumps(listing_data, indent=2)}\n"
-                prompt += f"URL: {listing.get('url', 'N/A')}\n"
         
         prompt += f"""
 USER'S QUESTION: {user_message}

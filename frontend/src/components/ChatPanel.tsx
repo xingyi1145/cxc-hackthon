@@ -19,6 +19,8 @@ interface Listing {
   url: string;
   price: string;
   location: string;
+  predicted_prices?: any;
+  prediction_breakdown?: any;
 }
 
 interface ChatPanelProps {
@@ -192,6 +194,8 @@ export function ChatPanel({ parameters, listings, setListings }: ChatPanelProps)
         url: scrapedData.url || urlToScrape,
         price: scrapedData.price || 'Price not available',
         location: scrapedData.location || 'Location not found',
+        predicted_prices: scrapedData.predicted_prices,
+        prediction_breakdown: scrapedData.prediction_breakdown
       };
       
       // Save to database
