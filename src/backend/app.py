@@ -14,6 +14,10 @@ from google import genai
 from google.genai import types
 from listing_scraper import ListingScraper
 from listing import Listing as ListingModel
+
+# Add model directory to path so we can import HousePricePredictor
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'model')))
 from house_price_predictor import HousePricePredictor
 
 # --- Helper Functions ---
@@ -35,7 +39,11 @@ if ENV_FILE:
 # --- Configuration ---
 app = Flask(__name__)
 app.secret_key = env.get("APP_SECRET_KEY")
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///housing_stress.db'
+
+# Ensure database is in the instance folder or project root
+# Using project root for consistency with previous setup
+db_path = os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')), 'housing_stress.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 CORS(app)  # Enable CORS for frontend API calls
 
@@ -51,8 +59,15 @@ listing_scraper = ListingScraper()
 # Initialize ML price predictor
 house_predictor = None
 try:
-    _model_path = 'models/predictor.pkl'
+    # Use absolute path relative to project root (2 levels up from src/backend/app.py)
+    _project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+    _model_path = os.path.join(_project_root, 'models', 'predictor.pkl')
+    
     if os.path.exists(_model_path):
+        # We need to ensure house_price_predictor is importable for pickle
+        if 'house_price_predictor' not in sys.modules:
+            import house_price_predictor
+            
         house_predictor = HousePricePredictor()
         house_predictor.load_models(_model_path)
         print('[INIT] ML price predictor loaded successfully')
